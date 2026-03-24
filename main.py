@@ -4,6 +4,8 @@ from openai import OpenAI
 # client = OpenAI(api_key="sk-...")
 client = OpenAI()
 
+TOP_K = 5
+
 def embed_chunks(chunks):
     response = client.embeddings.create(
         input=chunks,
@@ -23,16 +25,16 @@ def cosine_similarity(vec1, vec2):
         return 0.0
     return dot_product / (magnitude1 * magnitude2)
 
-def retrieve(query, chunk_embedding_pairs, top_k=5):
+def retrieve(query, chunk_embedding_pairs, top_k=TOP_K):
     query_embedding = embed_chunks([query])[0]
     similarities = [(chunk, cosine_similarity(query_embedding, embedding)) for chunk, embedding in chunk_embedding_pairs]
     similarities.sort(key=lambda x: x[1], reverse=True)
     return similarities[:top_k]
 
-def generate_answer(retrieval_prompt):
+def generate_answer(instructions):
     response = client.responses.create(
         model="gpt-3.5-turbo",
-        input=[{"role": "system", "content": "You are a helpful RAG assistant."}, {"role": "user", "content": retrieval_prompt}]
+        input=instructions
     )
     return response.output_text
 
@@ -51,12 +53,15 @@ except FileNotFoundError:
 print("Enter your query:")
 query = input()
 results = retrieve(query, chunk_embedding_pairs)
-retrieval_prompt = f"Relevant chunks: {" // ".join([chunk for chunk, _ in results[:5]])}, Answer the following query: {query}"
-# print(retrieval_prompt)
-answer = generate_answer(retrieval_prompt)
+instructions = []
+instructions.append({"role": "system", "content": f"You are a helpful Retrieval Augmented Generation (RAG) assistant. Use the following relevant chunks to answer the user's query.\n{"\n".join([f"Chunk {i+1}: {chunk}" for i, (chunk, _) in enumerate(results)])}"})
+instructions.append({"role": "user", "content": query})
+# print("\nInstructions for RAG model:")
+# for instruction in instructions:
+#     print(f"{instruction['role'].capitalize()}:\n{instruction['content']}\n")
+answer = generate_answer(instructions)
 print("\nGenerated Answer:")
 print(answer)
-# retrieval_prompt = f"Relevant chunks: {" // ".join([chunk for chunk, _ in results[:5]])}"
 
 # print("\nTop relevant chunks:")
 # for i, (chunk, similarity) in enumerate(results):
