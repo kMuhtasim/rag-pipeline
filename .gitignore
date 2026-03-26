@@ -1,0 +1,14 @@
+# Local vector DB cache
+chroma_db/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# SQLite DB
+*.sqlite3
+
+# Environment
+.env
