@@ -12,3 +12,6 @@ __pycache__/
 
 # Environment
 .env
+
+# Generated data files
+chunk_embeddings.pkl
