@@ -4,24 +4,27 @@ A RAG pipeline built from scratch, improving progressively.
 
 ## Overview
 
-This project implements a Retrieval-Augmented Generation (RAG) pipeline starting from first principles — manual chunking, cosine similarity, and OpenAI embeddings — I plan to integrate more robust vector storage backends like ChromaDB and FAISS progressively.
+This project implements a Retrieval-Augmented Generation (RAG) pipeline starting from first principles — manual chunking, OpenAI embeddings, and a vector store for retrieval. Storage and nearest-neighbour search are handled by **ChromaDB**, replacing the earlier pickle-based cache and manual cosine similarity approach.
 
 ## How It Works
 
 1. **Chunking** — the input text is split into overlapping chunks
 2. **Embedding** — chunks are embedded using OpenAI's `text-embedding-3-small`
-3. **Retrieval** — a query is embedded and compared against stored chunks using cosine similarity
-4. **Generation** — the top-k retrieved chunks are passed to a language model to generate an answer
+3. **Storage** — embeddings and documents are persisted in a local ChromaDB collection (`chroma_db/`)
+4. **Retrieval** — a query is embedded and the top-k most similar chunks are fetched via ChromaDB's ANN (Approximate Nearest Neighbour) search using cosine distance
+5. **Generation** — the retrieved chunks are passed to a language model to generate an answer
 
 ## Project Structure
 
 ```
 rag-pipeline/
 ├── main.py                 # Entry point
-├── chunk_embeddings.pkl    # Cached embeddings (auto-generated)
 ├── book1.txt               # Input document
+├── chroma_db/              # Persistent ChromaDB storage (auto-generated)
 └── README.md
 ```
+
+> `chunk_embeddings.pkl` is no longer used and has been removed. ChromaDB handles persistence automatically.
 
 ## Getting Started
 
@@ -35,7 +38,7 @@ rag-pipeline/
 ```bash
 git clone https://github.com/kMuhtasim/rag-pipeline.git
 cd rag-pipeline
-pip install openai
+pip install openai chromadb
 ```
 
 ### Usage
@@ -52,12 +55,20 @@ Place your text file as `book1.txt` in the root directory, then run:
 python main.py
 ```
 
-On first run, embeddings are computed and cached to `chunk_embeddings.pkl`. Subsequent runs load from cache.
+On first run, chunks are embedded and stored in the local `chroma_db/` directory. Subsequent runs load directly from ChromaDB — no re-embedding needed.
+
+## Storage & Retrieval
+
+| | Previous | Current |
+|---|---|---|
+| **Storage** | `chunk_embeddings.pkl` (pickle) | `chroma_db/` (ChromaDB persistent client) |
+| **Search** | Exact nearest neighbour (O(n) cosine similarity) | Approximate nearest neighbour (HNSW via ChromaDB) |
+| **Distance metric** | Cosine similarity | Cosine distance |
 
 ## Roadmap
 
 - [x] Manual cosine similarity retrieval
-- [ ] ChromaDB integration
+- [x] ChromaDB integration
 - [ ] FAISS integration
 - [ ] Support for multiple documents
 - [ ] Evaluation metrics (e.g. hit rate, MRR)
@@ -65,6 +76,7 @@ On first run, embeddings are computed and cached to `chunk_embeddings.pkl`. Subs
 ## Dependencies
 
 - [openai](https://github.com/openai/openai-python)
+- [chromadb](https://github.com/chroma-core/chroma)
 
 ## License
 
