@@ -3,10 +3,11 @@ import chromadb
 from openai import OpenAI
 # client = OpenAI(api_key="sk-...")
 client = OpenAI()
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+chroma_client = chromadb.PersistentClient(path="./.chroma_db")
 
 TOP_K = 5
 MODEL = "gpt-4o-mini"
+TOKEN_LIMIT = 100000
 
 def embed_chunks(chunks):
     response = client.embeddings.create(
@@ -15,7 +16,7 @@ def embed_chunks(chunks):
     )
     return [item.embedding for item in response.data]
 
-def chunk_text(text, chunk_size=100, overlap=20):
+def chunk_text(text, chunk_size=300, overlap=20):
     text = text.split()
     return [' '.join(text[i:i+chunk_size]) for i in range(0, len(text), chunk_size-overlap)]
 
@@ -49,7 +50,7 @@ def retrieve_chroma(query, collection, top_k=TOP_K):
 
 def dummy_answer_from_HyDE(query, retrieved_chunks):
     instructions = []
-    instructions.append({"role": "system", "content": f"You are a helpful Retrieval Augmented Generation (RAG) assistant. Use ONLY the following relevant chunks to answer the user's query. Prefer admitting ignorance over guessing.\n{"\n".join([f"Chunk {i+1}: {chunk}" for i, (chunk, _) in enumerate(retrieved_chunks)])}"})
+    instructions.append({"role": "system", "content": f"You are a helpful Retrieval Augmented Generation (RAG) assistant. Use ONLY the following relevant chunks to answer the user's query. If you don't have relevant chunks, provide a dummy answer.\n{"\n".join([f"Chunk {i+1}: {chunk}" for i, (chunk, _) in enumerate(retrieved_chunks)])}"})
     instructions.append({'role': 'user', 'content': query})
     # print("\nInstructions for HyDE:")
     # for instruction in instructions:
@@ -80,7 +81,7 @@ def generate_answer(instructions):
 #     with open('chunk_embeddings.pkl', 'rb') as f:
 #         chunk_embedding_pairs = pickle.load(f)
 # except FileNotFoundError:
-#     with open('book1.txt', 'r') as f:
+#     with open('18637-8.txt', 'r') as f:
 #         text = f.read()
 #     chunks = chunk_text(text)
 #     embeddings = embed_chunks(chunks)
@@ -93,10 +94,31 @@ collection = chroma_client.get_or_create_collection(
     metadata={"hnsw:space": "cosine"}
 )
 if collection.count() == 0:
-    with open('book1.txt', 'r') as f:
-        text = f.read()
-    chunks = chunk_text(text)
-    embeddings = embed_chunks(chunks)
+    with open('18637-8.txt', 'r') as f:
+        full_text = f.read()
+    word_count = len(full_text.split())
+    token_count = word_count * 2
+    # remaining_tokens = token_count
+    how_many_rounds = int((token_count // TOKEN_LIMIT) + 1)
+    text_chunk = []
+    chunks = []
+    embeddings = []
+    for round in range(how_many_rounds):
+        print(f"Processing round {round+1}/{how_many_rounds}...")
+        start_index = round * TOKEN_LIMIT
+        end_index = min((round + 1) * TOKEN_LIMIT, len(full_text.split()))
+        text_round = ' '.join(full_text.split()[start_index:end_index])
+        if not text_round.strip():
+            print("Empty text round, skipping...")
+            continue
+        chunk_round = chunk_text(text_round)
+        embedding_round = embed_chunks(chunk_round)
+        chunks.extend(chunk_round)
+        embeddings.extend(embedding_round)
+
+
+    # chunks = chunk_text(text_chunk)
+    # embeddings = embed_chunks(chunks)
     collection.add(
         ids=[f"chunk_{i+1}" for i in range(len(chunks))],
         documents=chunks,
@@ -106,16 +128,17 @@ if collection.count() == 0:
 print("Enter your query:")
 query = input()
 # query = "What are the main themes explored in the book?"
+# print(query)
 # results = retrieve(query, chunk_embedding_pairs)
 retrieval_results = retrieve_chroma(query, collection)
-dummy_answer = dummy_answer_from_HyDE(query, retrieval_results)
-retrieval_results = retrieve_chroma(dummy_answer, collection)
-# for i, (chunk, distance) in enumerate(retrieval_results):
-#     print(f"Retrieved Chunk {i+1}:\n{chunk}\n")
-#     print(f"Distance: {distance}\n")
+# dummy_answer = dummy_answer_from_HyDE(query, retrieval_results)
+# retrieval_results = retrieve_chroma(dummy_answer, collection)
+for i, (chunk, distance) in enumerate(retrieval_results):
+    print(f"Retrieved Chunk {i+1}:\n{chunk}\n")
+    print(f"Distance: {distance}\n")
 
 instructions = []
-instructions.append({"role": "system", "content": f"You are a helpful Retrieval Augmented Generation (RAG) assistant. Use ONLY the following relevant chunks to answer the user's query. Prefer admitting ignorance over guessing.\n{"\n".join([f"Chunk {i+1}: {chunk}" for i, (chunk, _) in enumerate(retrieval_results)])}"})
+instructions.append({"role": "system", "content": f"You are a helpful Retrieval Augmented Generation (RAG) assistant. Use ONLY the following relevant chunks to answer the user's query.\n{"\n".join([f"Chunk {i+1}: {chunk}" for i, (chunk, _) in enumerate(retrieval_results)])}"})
 instructions.append({"role": "user", "content": query})
 
 answer = generate_answer(instructions)
