@@ -19,7 +19,7 @@ This project implements a Retrieval-Augmented Generation (RAG) pipeline starting
 ```
 rag-pipeline/
 ├── main.py                 # Entry point
-├── book1.txt               # Input document
+├── <input_document_name>.txt               # Input document
 ├── chroma_db/              # Persistent ChromaDB storage (auto-generated)
 └── README.md
 ```
@@ -49,7 +49,7 @@ Set your OpenAI API key:
 export OPENAI_API_KEY=your_key_here
 ```
 
-Place your text file as `book1.txt` in the root directory, then run:
+Place your text file as `<input_document_name>.txt` in the root directory, edit line 11 in `main.py` accordingly, then run:
 
 ```bash
 python main.py
