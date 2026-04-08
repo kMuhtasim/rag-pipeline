@@ -8,6 +8,7 @@ chroma_client = chromadb.PersistentClient(path="./.chroma_db")
 TOP_K = 5
 MODEL = "gpt-4o-mini"
 TOKEN_LIMIT = 100000
+INPUT_TXT_FILE = '18637-8.txt'
 
 def embed_chunks(chunks):
     response = client.embeddings.create(
@@ -81,7 +82,7 @@ def generate_answer(instructions):
 #     with open('chunk_embeddings.pkl', 'rb') as f:
 #         chunk_embedding_pairs = pickle.load(f)
 # except FileNotFoundError:
-#     with open('18637-8.txt', 'r') as f:
+#     with open(INPUT_TXT_FILE, 'r') as f:
 #         text = f.read()
 #     chunks = chunk_text(text)
 #     embeddings = embed_chunks(chunks)
@@ -94,7 +95,7 @@ collection = chroma_client.get_or_create_collection(
     metadata={"hnsw:space": "cosine"}
 )
 if collection.count() == 0:
-    with open('18637-8.txt', 'r') as f:
+    with open(INPUT_TXT_FILE, 'r') as f:
         full_text = f.read()
     word_count = len(full_text.split())
     token_count = word_count * 2
